@@ -1,0 +1,172 @@
+﻿@model IEnumerable<MoneyManager.Models.Transaction>
+
+@{
+    ViewData["Title"] = "Index";
+}
+
+<h4>Indice de transacciones</h4>
+<a asp-action="Create" class="btn btn-primary mb-3">Crear una nueva transaccion</a>
+<div id="content"></div>
+<div id="result"></div>
+@section Styles{
+    <style src="https://cdn.datatables.net/1.11.4/css/jquery.dataTables.min.css"></style>
+ }
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+<script src="https://cdn.datatables.net/1.11.4/js/jquery.dataTables.min.js"></script>
+<script>
+    function loadForm() {
+        document.getElementById("content").innerHTML = `<div  class="col-7">
+                                             <form action="/" method="post" class="form-row">
+                                            <div>
+                                                <div class="col p-2">
+                                                    <label>Busqueda transaccion por categoria </label>
+                                                    <select id="TransactionType" class="form-control">
+                                                    </select>
+                                                    <select id="Categories" class="form-control"  style="margin-top: 10px"><option value="">seleccionar categoria</option></select>
+                                                    <button type="button"  onclick="SearchForCat()"  class="btn btn-primary mb-3" style="margin-top: 10px">Buscar</button>
+                                                </div>
+                                            </div>
+                                      </form >
+                                 <hr />
+                                    <form action="/" method="post" class="form-row">
+                                        <div>
+                                            <div class="col p-2">
+                                                <label>Busqueda transaccion por Nota </label>
+                                                <input id="DescriptionForm" type="text" class="form-control form-control-sm" />
+                                                <button id="dataDescription" onclick="SearchDescription()" type="button" class="btn btn-primary mb-3" style="margin-top: 10px">Buscar</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                                <hr />
+                                    <form action="/" method="post" class="form-row">
+                                        <div>
+                                            <div class="col p-2">
+                                                <label>Busqueda transaccion por fecha </label>
+                                                <input type="date" id="dataDate" class="form-control form-control-sm" />
+                                                <button type="button" onclick="SearchDate()" class="btn btn-primary mb-3" style="margin-top: 10px">Buscar</button>
+                                            </div>
+                                        </div>
+                                    </form>
+                        </div>`
+        ChargeSelect()
+    }
+
+    function reloadForm() {
+        document.getElementById("result").innerHTML = "";
+        loadForm()
+        document.getElementById("content").style.opacity = "100"
+    }
+
+    function chargeTable(arrayTransaction) {
+        let html = '<div class="list-group">';
+        arrayTransaction.map(x => {
+            console.log(x.transactionType)
+            let noteTrim = x.note != null ? (x.note).trim() : "Sin descripcion al momento del alta"
+            html +=
+                `  <div id="transaccionId-${x.id}">
+                        <a href="Transaction/Edit/${x.id}" class="list-group-item btn btn-outline-secondary btn-block">
+                        <b>Transaccion</b>: ${noteTrim} | <b>Fecha:</b> ${x.dateTransaction} | <b>Monto:</b> ${x.mount}</a>`
+                html += `<button onclick="EliminarTransaccion(${x.id})" class="btn btn-outline-danger btn-block">Eliminar</button></div>`
+        })
+        html += "</div>"
+        html += '<br/> <button onclick="reloadForm()" class="btn btn-primary">Volver a busqueda</button>'
+        document.getElementById("result").appendChild(document.createElement('div')).innerHTML = html;
+    }
+
+    function deleteForm() {
+        const content = document.getElementById("content");
+        for (let i = 1000; i > 0; i--) {
+            let opacity = i - 0.5;
+            setTimeout(() => {
+                content.style.opacity = `${opacity}`
+                if (opacity == 0.5) {
+                    setTimeout(() => { content.innerHTML = "" },500)
+                }
+            }, 500)
+        }
+    }
+
+    document.addEventListener("load", loadForm());
+
+    window.addEventListener("keypress", function (event) {
+        if (event.keyCode == 13) {
+            event.preventDefault();
+        }
+    }, false);
+
+
+    document.getElementById("dataName").addEventListener("click", async e => {
+        e.preventDefault();
+        deleteForm()
+    })
+
+    async function SearchDate() {
+        const urlFetch = '@Url.Action("GetTransactionXDateJson")'
+        const bodyDate = $("#dataDate").val()
+        const data = await fetch(urlFetch + "/?date=" + bodyDate);
+        const json = await data.json();
+        chargeTable(json);
+        deleteForm()
+    }
+
+
+    async function SearchDescription(){
+        const urlFetch = '@Url.Action("GetTransactionXdescriptionJson")'
+        const bodyData = $("#DescriptionForm").val()
+        const data = await fetch(urlFetch + "/?description=" + bodyData);
+        const json = await data.json();
+        chargeTable(json);
+        deleteForm()
+    }
+
+    function ChargeSelect() {
+        const url = '@Url.Action("GetCategoriesJson")';
+        document.getElementById("TransactionType").innerHTML = `
+           <option value="0">seleccionar Ingreso-Gasto</option>
+           <option value="1">Ingreso</option>
+           <option value="2">Gasto</option>`;
+        document.getElementById("TransactionType").addEventListener("change", async function () {
+            const data = await fetch(url, {
+                method: 'POST',
+                body: $(this).val(),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const json = await data.json();
+            const options = json.map(x => `<option value=${x.value}>${x.text}</option>`)
+            $("#Categories").html(options);
+
+        })
+    }
+
+    async function EliminarTransaccion(id){
+        const urlEliminar = '@Url.Action("Delete")'
+        let divEliminar = document.getElementById(`transaccionId-${id}`);
+        const data = await fetch(urlEliminar + "/?id=" + id)
+        const json = await data.json();
+        if (json) {
+            divEliminar.remove()
+        }
+        else {
+            alert("no se pudo eliminar la transaccion")
+        }
+    }
+
+    async function SearchForCat() {
+         const urlFetch = '@Url.Action("GetTransactionXCatJson")'
+        const bodyData = $("#Categories").val()
+        const data = await fetch(urlFetch + "/?categoryId=" + bodyData);
+        const json = await data.json();
+        chargeTable(json);
+        deleteForm()
+
+    }
+
+
+</script>
+
+}
